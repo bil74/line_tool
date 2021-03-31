@@ -11,9 +11,10 @@ void print_records(int o_mode, int to_sort);
 int cmpfunc_sort(const void * a, const void * b);
 
 enum mode {
-	count = 0,
-	unique = 1,
-	not_unique = 2,
+	nothing = 0,
+	count,
+	unique,
+	not_unique,
 };
 
 struct s_line {
@@ -38,10 +39,15 @@ int main(int argc, char *argv[])
 	const char *pb_line_prefix = "[PBTOOL - lines]";
 	
 	if (argc < 2) {
-		printf("%s Listing unique, non-unique lines, or just counting occurence of lines for a text file\n", pb_line_prefix);
-		printf("%s switches (can't be concatenated!) [unique: -U] [not-unique: -NU] [sort: -S] [list empty lines: -E] \n", pb_line_prefix);
-		printf("%s usage prog.exe [switches] input_file [output_file]\n", pb_line_prefix);
+		printf("%s === tool for text files ===\n", pb_line_prefix);
+		printf("%s usage prog.exe [modes / switches] input_file [output_file]\n", pb_line_prefix);
 		printf("%s *** WARNING: otput file will be overwritten during run!\n", pb_line_prefix);
+		printf("%s modes (can't be concatenated!) [unique: -U] [not-unique: -NU] [do nothing: -N]\n", pb_line_prefix);
+		printf("%s switches (can't be concatenated!) [sort: -S] [list empty lines: -E] \n", pb_line_prefix);
+		printf("%s use cases below:\n", pb_line_prefix);
+		printf("%s list unique lines: -U (usable switches: -S, -E)\n", pb_line_prefix);
+		printf("%s list non-unique lines: -UN (usable switches: -S, -E)\n", pb_line_prefix);
+		printf("%s list non-empty lines: -N\n", pb_line_prefix);
 		return 0;
 	}
 	else {	//parse params
@@ -53,6 +59,9 @@ int main(int argc, char *argv[])
 			}
 			else if (strstr(argv[i], "-NU")) {
 				mode = not_unique;
+			}
+			else if (strstr(argv[i], "-N")) {
+				mode = nothing;
 			}
 			else if (strstr(argv[i], "-S")) {
 				sort = 1;
@@ -80,6 +89,7 @@ int main(int argc, char *argv[])
 		if (mode == count) strcpy_s(mode_str, sizeof(mode_str), "count");
 		else if (mode == unique) strcpy_s(mode_str, sizeof(mode_str), "unique");
 		else if (mode == not_unique) strcpy_s(mode_str, sizeof(mode_str), "not unique");
+		else if (mode == nothing) strcpy_s(mode_str, sizeof(mode_str), "nothing");
 		printf("%s fname_i: %s\n", pb_line_prefix, fname_i);
 		printf("%s fname_o: %s\n", pb_line_prefix, fname_o[0] != 0 ? fname_o : "(stdout)");
 		printf("%s mode: %s\n", pb_line_prefix, mode_str);
@@ -117,7 +127,10 @@ int main(int argc, char *argv[])
 					input_sor[strlen(input_sor) - 1] = 0x00;
 				if (strlen(input_sor) == 0 && empty == 0)
 					continue;
-				if ((i = find_record(input_sor)) >= 0) {
+				if (mode == nothing) {
+					printf("%s\n", input_sor);
+				}
+				else if ((i = find_record(input_sor)) >= 0) {
 					lines[i].cnt++;
 				}
 				else {
@@ -132,7 +145,8 @@ int main(int argc, char *argv[])
 		}
 	}
 	//write output 
-	print_records(mode, sort);
+	if (mode != nothing)
+		print_records(mode, sort);
 
 	//closing files
 	fclose(fp_input);
