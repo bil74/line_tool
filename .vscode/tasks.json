@@ -28,7 +28,7 @@
 				"$gcc"
 			],
 			"group": "build",
-			"detail": "C:\\programs\\tdm-gcc\\9-2-0_32bit\\bin\\gcc.exe"
+			"detail": "C:\\programs\\tdm-gcc\\10-3-0\\bin\\gcc.exe"
 			//"detail": "C:\\TDM-GCC-64\\bin\\gcc.exe"
 		},
 
