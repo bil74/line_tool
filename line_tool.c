@@ -15,6 +15,14 @@ enum mode {
 	count,
 	unique,
 	not_unique,
+	line_end_dos,
+	line_end_unix,
+};
+
+enum line_end {
+	le_dos = 0,
+	le_unix = 1,
+	le_mac = 2
 };
 
 struct s_line {
@@ -37,6 +45,7 @@ int main(int argc, char *argv[])
 	int sort = 0;
 	int empty = 0;
 	const char *pb_line_prefix = "[PBTOOL - lines]";
+	int desired_line_end = -1;
 	
 	if (argc < 2) {
 		printf("%s === tool for text files ===\n", pb_line_prefix);
@@ -47,6 +56,8 @@ int main(int argc, char *argv[])
 		printf("%s use cases below:\n", pb_line_prefix);
 		printf("%s list unique lines: -U (usable switches: -S, -E)\n", pb_line_prefix);
 		printf("%s list non-unique lines: -UN (usable switches: -S, -E)\n", pb_line_prefix);
+		printf("%s list lines with DOS line-end: -LD (???usable switches: -S, -E)\n", pb_line_prefix);
+		printf("%s list lines with UNIX line-end: -LU (???usable switches: -S, -E)\n", pb_line_prefix);
 		printf("%s list non-empty lines: -N\n", pb_line_prefix);
 		return 0;
 	}
@@ -62,6 +73,18 @@ int main(int argc, char *argv[])
 			}
 			else if (strstr(argv[i], "-N")) {
 				mode = nothing;
+			}
+			else if (strstr(argv[i], "-LD")) {
+				mode = line_end_dos;
+				desired_line_end = le_dos;
+			}
+			else if (strstr(argv[i], "-LU")) {
+				mode = line_end_unix;
+				desired_line_end = le_unix;
+			}
+			else if (strstr(argv[i], "-LM")) {
+				mode = line_end_unix;
+				desired_line_end = le_mac;
 			}
 			else if (strstr(argv[i], "-S")) {
 				sort = 1;
@@ -90,6 +113,8 @@ int main(int argc, char *argv[])
 		else if (mode == unique) strcpy_s(mode_str, sizeof(mode_str), "unique");
 		else if (mode == not_unique) strcpy_s(mode_str, sizeof(mode_str), "not unique");
 		else if (mode == nothing) strcpy_s(mode_str, sizeof(mode_str), "nothing");
+		else if (mode == line_end_dos) strcpy_s(mode_str, sizeof(mode_str), "DOSline");
+		else if (mode == line_end_unix) strcpy_s(mode_str, sizeof(mode_str), "UNIXline");
 		printf("%s fname_i: %s\n", pb_line_prefix, fname_i);
 		printf("%s fname_o: %s\n", pb_line_prefix, fname_o[0] != 0 ? fname_o : "(stdout)");
 		printf("%s mode: %s\n", pb_line_prefix, mode_str);
@@ -100,7 +125,7 @@ int main(int argc, char *argv[])
 	//open input and output files
 	{
 		char errmsgbuf[100];
-		if (file_open(fname_i, "r", &fp_input, errmsgbuf, sizeof(errmsgbuf))) {
+		if (file_open(fname_i, "rb", &fp_input, errmsgbuf, sizeof(errmsgbuf))) {
 			printf("%s *** cannot open input file '%s': %s\n", pb_line_prefix, fname_i, errmsgbuf);
 			return -1;
 		}
@@ -117,30 +142,71 @@ int main(int argc, char *argv[])
 	}
 
 	//main task
+	#define MAXLINE 10000
 	{
-		char input_sor[10000 + 1] = { 0 };
+		char input_line[MAXLINE + 1] = { 0 };
 		int err_alloc;
 		long i;
 		while (!feof(fp_input)) {
-			if (fgets(input_sor, sizeof(input_sor) - 1, fp_input)) {
-				if (input_sor[strlen(input_sor) - 1] == '\n')
-					input_sor[strlen(input_sor) - 1] = 0x00;
-				if (strlen(input_sor) == 0 && empty == 0)
-					continue;
-				if (mode == nothing) {
-					printf("%s\n", input_sor);
+			int chr;
+			int current_line_end = -1;
+			int chr_i = 0;	//pos in input_line
+			while((chr = fgetc(fp_input)) != EOF){
+				if(chr == 0x0D){
+					int chr2 = fgetc(fp_input);
+					if (chr2 == 0x0A){
+						current_line_end = le_dos;
+					}
+					else{
+						current_line_end = le_mac;
+						if (chr2 != EOF){
+							//back file pos with one char
+							fpos_t position;
+							fgetpos(fp_input, &position);
+							position--;
+							fsetpos(fp_input, &position);
+						}
+					}
 				}
-				else if ((i = find_record(input_sor)) >= 0) {
+				else if (chr == 0x0A){
+					current_line_end = le_unix;
+				}
+				else{
+					if (chr_i < MAXLINE){
+						input_line[chr_i++] = chr;
+						input_line[chr_i] = 0x00;
+					}
+					else{
+						printf("%s *** line longer than %d!\n", pb_line_prefix, MAXLINE);
+					}
+				}
+				if (current_line_end != -1){
+					break;
+				}
+
+			}
+
+			if (1) {
+				/*
+				if (input_line[strlen(input_line) - 1] == '\n')
+					input_line[strlen(input_line) - 1] = 0x00;
+				*/
+				if (strlen(input_line) == 0 && empty == 0)
+					continue;
+				if (mode == nothing || desired_line_end == current_line_end) {
+					printf("%s\n", input_line);
+				}
+				else if ((i = find_record(input_line)) >= 0) {
 					lines[i].cnt++;
 				}
 				else {
-					err_alloc = fill_new_record(input_sor);
+					err_alloc = fill_new_record(input_line);
 					if (err_alloc) {
 						printf("%s *** malloc error! Exit all!\n", pb_line_prefix);
 						break;
 					}
 				}
-
+				current_line_end = -1;
 			}
 		}
 	}
