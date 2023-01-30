@@ -17,6 +17,7 @@ enum mode {
 	not_unique,
 	line_end_dos,
 	line_end_unix,
+	line_end_mac,
 };
 
 enum line_end {
@@ -44,6 +45,7 @@ int main(int argc, char *argv[])
 	int mode = count;
 	int sort = 0;
 	int empty = 0;
+	int verbose = 0;
 	const char *pb_line_prefix = "[PBTOOL - lines]";
 	int desired_line_end = -1;
 	
@@ -56,8 +58,9 @@ int main(int argc, char *argv[])
 		printf("%s use cases below:\n", pb_line_prefix);
 		printf("%s list unique lines: -U (usable switches: -S, -E)\n", pb_line_prefix);
 		printf("%s list non-unique lines: -UN (usable switches: -S, -E)\n", pb_line_prefix);
-		printf("%s list lines with DOS line-end: -LD (???usable switches: -S, -E)\n", pb_line_prefix);
-		printf("%s list lines with UNIX line-end: -LU (???usable switches: -S, -E)\n", pb_line_prefix);
+		printf("%s list lines with DOS line-end: -LD (usable switches: -E)\n", pb_line_prefix);
+		printf("%s list lines with UNIX line-end: -LU (usable switches: -E)\n", pb_line_prefix);
+		printf("%s list lines with MAC line-end: -LM (usable switches: -E)\n", pb_line_prefix);
 		printf("%s list non-empty lines: -N\n", pb_line_prefix);
 		return 0;
 	}
@@ -83,7 +86,7 @@ int main(int argc, char *argv[])
 				desired_line_end = le_unix;
 			}
 			else if (strstr(argv[i], "-LM")) {
-				mode = line_end_unix;
+				mode = line_end_mac;
 				desired_line_end = le_mac;
 			}
 			else if (strstr(argv[i], "-S")) {
@@ -91,6 +94,9 @@ int main(int argc, char *argv[])
 			}
 			else if (strstr(argv[i], "-E")) {
 				empty = 1;
+			}
+			else if (strstr(argv[i], "-V")) {
+				verbose = 1;
 			}
 			else {
 				if (non_switch_params < 2) {
@@ -107,7 +113,7 @@ int main(int argc, char *argv[])
 	}
 
 	//testing
-	{
+	if (verbose){
 		char mode_str[100];
 		if (mode == count) strcpy_s(mode_str, sizeof(mode_str), "count");
 		else if (mode == unique) strcpy_s(mode_str, sizeof(mode_str), "unique");
@@ -115,6 +121,7 @@ int main(int argc, char *argv[])
 		else if (mode == nothing) strcpy_s(mode_str, sizeof(mode_str), "nothing");
 		else if (mode == line_end_dos) strcpy_s(mode_str, sizeof(mode_str), "DOSline");
 		else if (mode == line_end_unix) strcpy_s(mode_str, sizeof(mode_str), "UNIXline");
+		else if (mode == line_end_mac) strcpy_s(mode_str, sizeof(mode_str), "MACline");
 		printf("%s fname_i: %s\n", pb_line_prefix, fname_i);
 		printf("%s fname_o: %s\n", pb_line_prefix, fname_o[0] != 0 ? fname_o : "(stdout)");
 		printf("%s mode: %s\n", pb_line_prefix, mode_str);
@@ -148,9 +155,12 @@ int main(int argc, char *argv[])
 		int err_alloc;
 		long i;
 		while (!feof(fp_input)) {
+
+			//read a line
 			int chr;
 			int current_line_end = -1;
 			int chr_i = 0;	//pos in input_line
+			input_line[chr_i] = 0x00;
 			while((chr = fgetc(fp_input)) != EOF){
 				if(chr == 0x0D){
 					int chr2 = fgetc(fp_input);
@@ -186,6 +196,7 @@ int main(int argc, char *argv[])
 
 			}
 
+			//process a line
 			if (1) {
 				/*
 				if (input_line[strlen(input_line) - 1] == '\n')

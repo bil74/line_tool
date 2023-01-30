@@ -34,7 +34,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}\\line_tool_dbg.exe",
-            "args": ["-LD", "readme.txt"],
+            "args": ["-LU", "readme.txt"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
