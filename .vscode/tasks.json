@@ -7,8 +7,7 @@
 			"type": "cppbuild",
 			//"label": "C/C++: gcc.exe build active file 32bit",
 			"label": "Win32_task_rel",
-			"command": "C:\\programs\\tdm-gcc\\10-3-0\\bin\\gcc.exe",
-			//"command": "C:\\TDM-GCC-64\\bin\\gcc.exe",
+			"command": "gcc.exe",
 			"args": [
 				"-O2",
 				"-m32",
@@ -28,8 +27,7 @@
 				"$gcc"
 			],
 			"group": "build",
-			"detail": "C:\\programs\\tdm-gcc\\10-3-0\\bin\\gcc.exe"
-			//"detail": "C:\\TDM-GCC-64\\bin\\gcc.exe"
+			"detail": "gcc.exe"
 		},
 
 
@@ -38,8 +36,7 @@
 			"type": "cppbuild",
 			//"label": "C/C++: gcc.exe build active file 32bit",
 			"label": "Win32_task_dbg",
-			"command": "C:\\programs\\tdm-gcc\\10-3-0\\bin\\gcc.exe",
-			//"command": "C:\\TDM-GCC-64\\bin\\gcc.exe",
+			"command": "gcc.exe",
 			"args": [
 				"-g",
 				"-m32",
@@ -59,8 +56,7 @@
 				"$gcc"
 			],
 			"group": "build",
-			"detail": "C:\\programs\\tdm-gcc\\10-3-0\\bin\\gcc.exe"
-			//"detail": "C:\\TDM-GCC-64\\bin\\gcc.exe"
+			"detail": "gcc.exe"
 		}
 
 	]
