@@ -1,36 +1,45 @@
 #include <windows.h>
 #include <stdio.h>
+#include <time.h>
 
 #define FILENAME_MAXLEN 260
 
-int file_open(char *fname_i, char *open_mode_i, FILE **fhandler_o, char *errmsg_io, int errmsg_maxlen);
-int fill_new_record(char *line);
-long find_record(char *line);
-void free_records(void);
-void print_records(int o_mode, int to_sort);
-int cmpfunc_sort(const void * a, const void * b);
-
-enum mode {
-	nothing = 0,
-	count,
-	unique,
-	not_unique,
-	line_end_dos,
-	line_end_unix,
-	line_end_mac,
-};
-
 enum line_end {
-	le_dos = 0,
-	le_unix = 1,
-	le_mac = 2
+	le_unspec = 0,
+	le_dos = 1,		//0x0d, 0x0a
+	le_unix = 2,	//0x0a
+	le_mac = 3
 };
 
 struct s_line {
 	char *line;
 	unsigned long cnt;
+	enum line_end le;
 };
+
 struct s_line *lines = NULL;
+
+int file_open(char *fname_i, char *open_mode_i, FILE **fhandler_o, char *errmsg_io, int errmsg_maxlen);
+int fill_new_record(char *line, enum line_end le);
+long find_record(char *line);
+void free_records(void);
+void print_records(int o_mode, int out_order, int cnt, int line_end);
+int cmpfunc_sort(const void * a, const void * b);
+void rand_lines(struct s_line *lns, int lns_cnt);
+
+enum mode {
+	nothing = 0,
+	unique,
+	not_unique
+};
+
+
+enum output_order {
+	semmi = 0,
+	sort = 1,
+	randomize = 2
+};
+
 long lines_cnt = 0;
 char fname_i[260] = { 0 };
 char fname_o[260] = { 0 };
@@ -42,25 +51,30 @@ FILE *fp_output;
 
 int main(int argc, char *argv[])
 {
-	int mode = count;
-	int sort = 0;
+	int err_flg = 0;
+	int mode = nothing;
+	int out_order = semmi;	//nothing, sort, randomize
+	int count = 0;
 	int empty = 0;
 	int verbose = 0;
-	const char *pb_line_prefix = "[PBTOOL - lines]";
-	int desired_line_end = -1;
-	
+	//const char *pb_line_prefix = "[PBTOOL - lines]";
+	const char *pb_line_prefix = "[===]";
+	int desired_line_end = le_unspec;
+
+	srand(time(NULL));
+
 	if (argc < 2) {
 		printf("%s === tool for text files ===\n", pb_line_prefix);
 		printf("%s usage prog.exe [modes / switches] input_file [output_file]\n", pb_line_prefix);
 		printf("%s *** WARNING: otput file will be overwritten during run!\n", pb_line_prefix);
 		printf("%s modes (can't be concatenated!) [unique: -U] [not-unique: -NU] [do nothing: -N]\n", pb_line_prefix);
-		printf("%s switches (can't be concatenated!) [sort: -S] [list empty lines: -E] \n", pb_line_prefix);
+		printf("%s output switches (can't be concatenated!) [sort: -S] [randomize: -R] [verbose: -V] [list empty lines: -E] \n", pb_line_prefix);
 		printf("%s use cases below:\n", pb_line_prefix);
 		printf("%s list unique lines: -U (usable switches: -S, -E)\n", pb_line_prefix);
 		printf("%s list non-unique lines: -UN (usable switches: -S, -E)\n", pb_line_prefix);
-		printf("%s list lines with DOS line-end: -LD (usable switches: -E)\n", pb_line_prefix);
-		printf("%s list lines with UNIX line-end: -LU (usable switches: -E)\n", pb_line_prefix);
-		printf("%s list lines with MAC line-end: -LM (usable switches: -E)\n", pb_line_prefix);
+		printf("%s list lines with DOS line-end: -LD (usable switches: -E, mode must be ""nothing"")\n", pb_line_prefix);
+		printf("%s list lines with UNIX line-end: -LU (usable switches: -E, mode must be ""nothing"")\n", pb_line_prefix);
+		printf("%s list lines with MAC line-end: -LM (usable switches: -E, mode must be ""nothing"")\n", pb_line_prefix);
 		printf("%s list non-empty lines: -N\n", pb_line_prefix);
 		return 0;
 	}
@@ -71,32 +85,39 @@ int main(int argc, char *argv[])
 			if (strstr(argv[i], "-U")) {
 				mode = unique;
 			}
-			else if (strstr(argv[i], "-NU")) {
+			else if (strcmp(argv[i], "-NU") == 0) {
 				mode = not_unique;
 			}
-			else if (strstr(argv[i], "-N")) {
+			else if (strcmp(argv[i], "-N") == 0) {	//default
 				mode = nothing;
 			}
-			else if (strstr(argv[i], "-LD")) {
-				mode = line_end_dos;
+			else if (strcmp(argv[i], "-LD") == 0) {
 				desired_line_end = le_dos;
 			}
-			else if (strstr(argv[i], "-LU")) {
-				mode = line_end_unix;
+			else if (strcmp(argv[i], "-LU") == 0) {
 				desired_line_end = le_unix;
 			}
-			else if (strstr(argv[i], "-LM")) {
-				mode = line_end_mac;
+			else if (strcmp(argv[i], "-LM") == 0) {
 				desired_line_end = le_mac;
 			}
-			else if (strstr(argv[i], "-S")) {
-				sort = 1;
-			}
-			else if (strstr(argv[i], "-E")) {
+			else if (strcmp(argv[i], "-E") == 0) {	//deal with empty lines - non-default behavior
 				empty = 1;
 			}
-			else if (strstr(argv[i], "-V")) {
+			else if (strcmp(argv[i], "-S") == 0) {
+				out_order = sort;
+			}
+			else if (strcmp(argv[i], "-R") == 0) {	//randomize output (can be used only if every line is unique)
+				out_order = randomize;
+			}
+			else if (strcmp(argv[i], "-C") == 0) {	//count lines
+				count = 1;
+			}
+			else if (strcmp(argv[i], "-V") == 0) {
 				verbose = 1;
+			}
+			else if (strstr(argv[i], "-")) {
+				printf("Unknown param %s\n", argv[i]);
+				err_flg = 1;
 			}
 			else {
 				if (non_switch_params < 2) {
@@ -114,38 +135,54 @@ int main(int argc, char *argv[])
 
 	//testing
 	if (verbose){
-		char mode_str[100];
-		if (mode == count) strcpy_s(mode_str, sizeof(mode_str), "count");
-		else if (mode == unique) strcpy_s(mode_str, sizeof(mode_str), "unique");
-		else if (mode == not_unique) strcpy_s(mode_str, sizeof(mode_str), "not unique");
-		else if (mode == nothing) strcpy_s(mode_str, sizeof(mode_str), "nothing");
-		else if (mode == line_end_dos) strcpy_s(mode_str, sizeof(mode_str), "DOSline");
-		else if (mode == line_end_unix) strcpy_s(mode_str, sizeof(mode_str), "UNIXline");
-		else if (mode == line_end_mac) strcpy_s(mode_str, sizeof(mode_str), "MACline");
+		char* mode_str = "nothing";
+		char* line_end_str = "not specified";
+		char* count_str = "no";
+		char* oo = "nothing";
+
+		if(out_order == sort) oo = "sort";
+		else if(out_order == randomize) oo = "random";
+
+		if (count) count_str = "yes";
+
+		if (mode == unique) mode_str = "unique";
+		else if (mode == not_unique) mode_str = "not unique";
+		
+		if (desired_line_end == le_dos) line_end_str = "DOSline";
+		else if (desired_line_end == le_unix) line_end_str = "UNIXline";
+		else if (desired_line_end == le_mac) line_end_str = "MACline";
+
 		printf("%s fname_i: %s\n", pb_line_prefix, fname_i);
 		printf("%s fname_o: %s\n", pb_line_prefix, fname_o[0] != 0 ? fname_o : "(stdout)");
+		printf("%s count: %s\n", pb_line_prefix, count_str);
 		printf("%s mode: %s\n", pb_line_prefix, mode_str);
-		printf("%s sort: %s\n", pb_line_prefix, sort == 1 ? "yes" : "no");
+		printf("%s line end: %s\n", pb_line_prefix, line_end_str);
+		printf("%s out order: %s\n", pb_line_prefix, oo);
 		printf("%s deal with empty lines: %s\n", pb_line_prefix, empty == 1 ? "yes" : "no");
 	}
 
 	//open input and output files
 	{
 		char errmsgbuf[100];
-		if (file_open(fname_i, "rb", &fp_input, errmsgbuf, sizeof(errmsgbuf))) {
+		if (!err_flg && file_open(fname_i, "rb", &fp_input, errmsgbuf, sizeof(errmsgbuf))) {
 			printf("%s *** cannot open input file '%s': %s\n", pb_line_prefix, fname_i, errmsgbuf);
-			return -1;
+			err_flg = 1;
 		}
 
-		if (fname_o[0] != 0) {
+		if (!err_flg && fname_o[0] != 0) {
 			if (file_open(fname_o, "w", &fp_output, errmsgbuf, sizeof(errmsgbuf))) {
 				printf("%s *** cannot open output file '%s': %s\n", pb_line_prefix, fname_o, errmsgbuf);
-				return -1;
+				err_flg = 1;
 			}
 		}
 		else {
 			fp_output = stdout;
 		}
+	}
+
+	if (err_flg){
+		printf("%s *** error detected!\n", pb_line_prefix);
+		return -1;
 	}
 
 	//main task
@@ -158,7 +195,7 @@ int main(int argc, char *argv[])
 
 			//read a line
 			int chr;
-			int current_line_end = -1;
+			int current_line_end = le_unspec;
 			int chr_i = 0;	//pos in input_line
 			input_line[chr_i] = 0x00;
 			while((chr = fgetc(fp_input)) != EOF){
@@ -190,7 +227,7 @@ int main(int argc, char *argv[])
 						printf("%s *** line longer than %d!\n", pb_line_prefix, MAXLINE);
 					}
 				}
-				if (current_line_end != -1){
+				if (current_line_end != le_unspec){
 					break;
 				}
 
@@ -204,26 +241,29 @@ int main(int argc, char *argv[])
 				*/
 				if (strlen(input_line) == 0 && empty == 0)
 					continue;
-				if (mode == nothing || desired_line_end == current_line_end) {
-					printf("%s\n", input_line);
+				if (mode == nothing){
+					err_alloc = fill_new_record(input_line, current_line_end);
+					if (err_alloc) {
+						printf("%s *** malloc error! Exit all #1!\n", pb_line_prefix);
+						break;
+					}
 				}
 				else if ((i = find_record(input_line)) >= 0) {
 					lines[i].cnt++;
 				}
 				else {
-					err_alloc = fill_new_record(input_line);
+					err_alloc = fill_new_record(input_line, current_line_end);
 					if (err_alloc) {
-						printf("%s *** malloc error! Exit all!\n", pb_line_prefix);
+						printf("%s *** malloc error! Exit all #2!\n", pb_line_prefix);
 						break;
 					}
 				}
-				current_line_end = -1;
+				current_line_end = le_unspec;
 			}
 		}
 	}
 	//write output 
-	if (mode != nothing)
-		print_records(mode, sort);
+	print_records(mode, out_order, count, desired_line_end);
 
 	//closing files
 	fclose(fp_input);
@@ -257,7 +297,7 @@ int file_open(char *fname_i, char *open_mode_i, FILE **fhandler_o, char *errmsg_
 }
 
 //------------------------------------------------------------------------------------------------------------------
-int fill_new_record(char *line)
+int fill_new_record(char *line, enum line_end le)
 {
 	int rv = 0;
 	if (lines_cnt == 0) {
@@ -273,6 +313,7 @@ int fill_new_record(char *line)
 			rv = -1;
 		else {
 			strcpy_s(lines[lines_cnt].line, strlen(line) + 1, line);
+			lines[lines_cnt].le = le;
 			lines_cnt++;
 		}
 	}
@@ -310,27 +351,46 @@ void free_records(void)
 
 //------------------------------------------------------------------------------------------------------------------
 
-void print_records(int o_mode, int to_sort)
+void print_records(int o_mode, int out_order, int cnt, int line_end)
 {
 	long i;
+	int print = 0;
 
-	if (to_sort) {
+	if (out_order == sort) {
 		qsort(lines, lines_cnt, sizeof(struct s_line), cmpfunc_sort);
+	}
+	else if(out_order == randomize){
+		rand_lines(lines, lines_cnt);
 	}
 
 	for (i = 0; i < lines_cnt; i++) {
+		print = 0;
 		if (lines[i].cnt) {
-			if (o_mode == count) {
-				fprintf(fp_output, "%5d - ", lines[i].cnt);
-				fprintf(fp_output, "%s\n", lines[i].line);
-			}
-			else if (o_mode == unique) {
-				fprintf(fp_output, "%s\n", lines[i].line);
+
+			//fill print
+			if (o_mode == unique) {
+				print = 1;
 			}
 			else if (o_mode == not_unique) {
 				if (lines[i].cnt > 1) {
-					fprintf(fp_output, "%s\n", lines[i].line);
+					print = 1;
 				}
+			}
+			else if (o_mode == nothing) {
+				if(line_end != le_unspec){
+					if (line_end == lines[i].le){
+						print = 1;
+					}
+				}
+				else{
+					print = 1;
+				}
+			}
+
+			//count and print
+			if (print){
+				if (cnt) fprintf(fp_output, "%5d - ", lines[i].cnt);
+				fprintf(fp_output, "%s\n", lines[i].line);
 			}
 		}
 
@@ -339,7 +399,21 @@ void print_records(int o_mode, int to_sort)
 }
 
 //------------------------------------------------------------------------------------------------------------------
+void rand_lines(struct s_line *lns, int lns_cnt)
+{
+	int i,r;
+	struct s_line tmps;
+	for(i = 0; i < lns_cnt; i++){
+		r = rand()%lns_cnt;
+		if (i != r){	//switch lines[i] and lines[r]
+			memcpy(&tmps, &lns[i], sizeof(struct s_line));
+			memcpy(&lns[i], &lns[r], sizeof(struct s_line));
+			memcpy(&lns[r], &tmps, sizeof(struct s_line));
+		}
+	}
+}
 
+//------------------------------------------------------------------------------------------------------------------
 int cmpfunc_sort(const void * a, const void * b)
 {
 	/*this function belongs to qsort*/

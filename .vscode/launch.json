@@ -34,7 +34,8 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}\\line_tool_dbg.exe",
-            "args": ["-LU", "readme.txt"],
+            "args": ["-C", "-V", "-NU", "input.txt"],
+            //"args": ["input.txt"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
@@ -42,7 +43,7 @@
             "MIMode": "gdb",
             //"miDebuggerPath": "C:\\TDM-GCC-64\\bin\\gdb32.exe",
             //"miDebuggerPath": "C:\\programs\\tdm-gcc\\9-2-0_32bit\\bin\\gdb32.exe",
-            "miDebuggerPath": "C:\\programs\\tdm-gcc\\10-3-0\\bin\\gdb32.exe",
+            "miDebuggerPath": "gdb32.exe",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
