@@ -23,14 +23,13 @@ int file_open(char *fname_i, char *open_mode_i, FILE **fhandler_o, char *errmsg_
 int fill_new_record(char *line, enum line_end le);
 long find_record(char *line);
 void free_records(void);
-void print_records(int o_mode, int out_order, int cnt, int line_end);
+void print_records(int i_mode, int out_order, int cnt, int line_end);
 int cmpfunc_sort(const void * a, const void * b);
 void rand_lines(struct s_line *lns, int lns_cnt);
 
 enum mode {
 	nothing = 0,
-	unique,
-	not_unique
+	group
 };
 
 
@@ -67,11 +66,10 @@ int main(int argc, char *argv[])
 		printf("%s === tool for text files ===\n", pb_line_prefix);
 		printf("%s usage prog.exe [modes / switches] input_file [output_file]\n", pb_line_prefix);
 		printf("%s *** WARNING: otput file will be overwritten during run!\n", pb_line_prefix);
-		printf("%s modes (can't be concatenated!) [unique: -U] [not-unique: -NU] [do nothing: -N]\n", pb_line_prefix);
-		printf("%s output switches (can't be concatenated!) [sort: -S] [randomize: -R] [verbose: -V] [list empty lines: -E] \n", pb_line_prefix);
+		printf("%s input modes [group input: -G] or just list (no grouping) \n", pb_line_prefix);
+		printf("%s output switches (can't be concatenated!) [sort / randomize: -S / -R] [verbose: -V] [list empty lines: -E] [count: -C] \n", pb_line_prefix);
 		printf("%s use cases below:\n", pb_line_prefix);
-		printf("%s list unique lines: -U (usable switches: -S, -E)\n", pb_line_prefix);
-		printf("%s list non-unique lines: -UN (usable switches: -S, -E)\n", pb_line_prefix);
+		printf("%s list with grouping and sort by occurence: -G -C -S \n", pb_line_prefix);
 		printf("%s list lines with DOS line-end: -LD (usable switches: -E, mode must be ""nothing"")\n", pb_line_prefix);
 		printf("%s list lines with UNIX line-end: -LU (usable switches: -E, mode must be ""nothing"")\n", pb_line_prefix);
 		printf("%s list lines with MAC line-end: -LM (usable switches: -E, mode must be ""nothing"")\n", pb_line_prefix);
@@ -82,14 +80,8 @@ int main(int argc, char *argv[])
 		int i;
 		int non_switch_params = 0;
 		for (i = 1; i < argc; i++) {
-			if (strstr(argv[i], "-U")) {
-				mode = unique;
-			}
-			else if (strcmp(argv[i], "-NU") == 0) {
-				mode = not_unique;
-			}
-			else if (strcmp(argv[i], "-N") == 0) {	//default
-				mode = nothing;
+			if (strstr(argv[i], "-G")) {
+				mode = group;
 			}
 			else if (strcmp(argv[i], "-LD") == 0) {
 				desired_line_end = le_dos;
@@ -145,8 +137,8 @@ int main(int argc, char *argv[])
 
 		if (count) count_str = "yes";
 
-		if (mode == unique) mode_str = "unique";
-		else if (mode == not_unique) mode_str = "not unique";
+		if (mode == group) mode_str = "group";
+		else mode_str = "list";
 		
 		if (desired_line_end == le_dos) line_end_str = "DOSline";
 		else if (desired_line_end == le_unix) line_end_str = "UNIXline";
@@ -351,7 +343,7 @@ void free_records(void)
 
 //------------------------------------------------------------------------------------------------------------------
 
-void print_records(int o_mode, int out_order, int cnt, int line_end)
+void print_records(int i_mode, int out_order, int cnt, int line_end)
 {
 	long i;
 	int print = 0;
@@ -368,15 +360,10 @@ void print_records(int o_mode, int out_order, int cnt, int line_end)
 		if (lines[i].cnt) {
 
 			//fill print
-			if (o_mode == unique) {
+			if (i_mode == group) {
 				print = 1;
 			}
-			else if (o_mode == not_unique) {
-				if (lines[i].cnt > 1) {
-					print = 1;
-				}
-			}
-			else if (o_mode == nothing) {
+			else {
 				if(line_end != le_unspec){
 					if (line_end == lines[i].le){
 						print = 1;
